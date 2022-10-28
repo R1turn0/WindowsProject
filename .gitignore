@@ -1,6 +1,10 @@
 # Created by https://www.toptal.com/developers/gitignore/api/c,visualstudio,windows,c++
 # Edit at https://www.toptal.com/developers/gitignore?templates=c,visualstudio,windows,c++
 
+### I add ###
+build/
+
+
 ### C ###
 # Prerequisites
 *.d
