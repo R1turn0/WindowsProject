@@ -106,7 +106,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
         {
             for (x = 0; x < cxBuffer; x++)
             {
-                BUFFER(x, y) = ' ';
+                BUFFER(x, y) = 0x20;    // ¿Õ¸ñ
             }
         }
 
