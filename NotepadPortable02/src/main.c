@@ -85,7 +85,9 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
     static int cxIcon, cyIcon;      // 图标的大小
     
     static TCHAR* pBuffer = NULL;
+    static TCHAR szFileText[MAX_PATH];
     static TCHAR szFileName[MAX_PATH];
+    static TCHAR szBuffer[MAX_PATH];
     HDC hdc;
     HMENU hMenu;
     int x, y, i;
@@ -101,7 +103,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
         cyIcon = GetSystemMetrics(SM_CXICON);
         hwndEdit = CreateWindow(
             TEXT("EDIT"),
-            TEXT("**我是编辑框 请在这里输入内容**"),
+            TEXT("///请输入内容///"),
             WS_CHILD | WS_VISIBLE | WS_HSCROLL | WS_VSCROLL | WS_BORDER | ES_LEFT | ES_MULTILINE | ES_NOHIDESEL | ES_AUTOHSCROLL | ES_AUTOVSCROLL,
             0,
             10,
@@ -130,30 +132,31 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
         switch (LOWORD(wParam))
         {
         case IDM_FILE_NEW:
-            hwndEdit = CreateWindow(
-                TEXT("EDIT"),
-                TEXT("**我是编辑框 请在这里输入内容**"),
-                WS_CHILD | WS_VISIBLE | WS_HSCROLL | WS_VSCROLL | WS_BORDER | ES_LEFT | ES_MULTILINE | ES_NOHIDESEL | ES_AUTOHSCROLL | ES_AUTOVSCROLL,
-                0,
-                10,
-                1000,
-                500,
-                hwnd,
-                (HMENU)EDITID,
-                hInst,
-                NULL
-            );
-            NotepadFontInitialize(hwndEdit);
-            DoCaption(hwnd, szFileName);
+            DestroyWindow(hwndEdit); // 销毁指定窗口
+            SendMessage(hwnd, WM_CREATE, NULL, 0);
             break;
         case IDM_FILE_OPEN:
         case IDM_FILE_SAVE:
+            if (szFileText[0])
+            {
+                if (1)
+                {
+                    return 0;
+                }
+                else
+                {
+                    wsprintf(szBuffer, TEXT("Can't Save the File!"), szFileName[0] ? szFileName : UNTITLED);
+                    MessageBox(hwnd, szBuffer, szAppName, MB_OK | MB_ICONEXCLAMATION);
+                    return 0;
+                }
+            }
         case IDM_FILE_SAVEAS:
         case IDM_FILE_PRINT:
         case IDM_FILE_CLOSE:
             DestroyWindow(hwndEdit); // 销毁指定窗口
+            break;
         case IDM_EXIT:
-
+            SendMessage(hwnd, WM_CLOSE, NULL, 0);
         default:
             break;
         }
@@ -184,3 +187,12 @@ int DoCaption(HWND hwnd, TCHAR* szTitleName)
     SetWindowText(hwnd, szCaption);
     return 0;
 }
+
+/*
+Creating a File View
+https://learn.microsoft.com/en-us/windows/win32/memory/creating-a-file-view
+
+MapViewOfFile function (memoryapi.h)
+https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-mapviewoffile
+
+*/
