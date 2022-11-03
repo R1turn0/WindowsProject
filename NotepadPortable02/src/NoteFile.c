@@ -2,7 +2,7 @@
 
 static OPENFILENAME ofn;
 
-void NotepadFileInitialize(HWND hwnd)
+void FileInit(HWND hwnd)
 {
     static TCHAR szFilter[] = TEXT("Text Files (*.TXT)\0*.txt\0")  \
         TEXT("ASCII Files (*.ASC)\0*.asc\0") \
@@ -30,7 +30,7 @@ void NotepadFileInitialize(HWND hwnd)
     ofn.lpTemplateName = NULL;
 }
 
-BOOL NotepadFileSaveDlg(HWND hwnd, PTSTR pstrFileName, PTSTR pstrTitleName)
+BOOL FileSaveDlg(HWND hwnd, PTSTR pstrFileName, PTSTR pstrTitleName)
 {
     ofn.hwndOwner = hwnd;
     ofn.lpstrFile = pstrFileName;
@@ -40,7 +40,7 @@ BOOL NotepadFileSaveDlg(HWND hwnd, PTSTR pstrFileName, PTSTR pstrTitleName)
     return GetSaveFileName(&ofn);
 }
 
-BOOL NotepadFileRead(HWND hwndEdit, PTSTR pstrFileName)
+BOOL FileRead(HWND hwndEdit, PTSTR pstrFileName)
 {
     BYTE   bySwap;
     DWORD  dwBytesRead;
@@ -132,7 +132,7 @@ BOOL NotepadFileRead(HWND hwndEdit, PTSTR pstrFileName)
 }
 
 
-BOOL NotepadFileWrite(HWND hwndEdit, PTSTR pstrFileName)
+BOOL FileWrite(HWND hwndEdit, PTSTR pstrFileName)
 {
     DWORD  dwBytesWritten;
     HANDLE hFile;
@@ -188,7 +188,7 @@ BOOL NotepadFileWrite(HWND hwndEdit, PTSTR pstrFileName)
 
 
 //点击Open打开文件
-BOOL NotepadFileOpenDlg(HWND hwnd, PTSTR pstrFileName, PTSTR pstrTitleName)
+BOOL FileOpenDlg(HWND hwnd, PTSTR pstrFileName, PTSTR pstrTitleName)
 {
     ofn.hwndOwner = hwnd;
     ofn.lpstrFile = pstrFileName;

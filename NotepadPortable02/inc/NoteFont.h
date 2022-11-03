@@ -7,10 +7,13 @@
 #include <stdlib.h>
 #include <commdlg.h>
 
-BOOL NotepadFontChooseFont(HWND hwnd);
-void NotepadFontInitialize(HWND hwndEdit);
-void NotepadFontSetFont(HWND hwndEdit);
-void NotepadFontDeinitialize(void);
+void FontInit(HWND);
+
+BOOL FontChooseFont(HWND);
+
+void FontSetFont(HWND);
+
+void FontDeinitialize();
 
 
 #endif // !NoteFont_H

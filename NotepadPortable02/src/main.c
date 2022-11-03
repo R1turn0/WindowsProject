@@ -7,7 +7,7 @@
 #define NUMLINES 100
 #define EDITID   1
 #define BUFFER(x, y) *(pBuffer + y * cxBuffer + x) 
-#define UNTITLED TEXT("New File")
+#define UNHEADER TEXT("New File")
 
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 
@@ -76,7 +76,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     static DWORD dwCharSet = DEFAULT_CHARSET;
     static HWND hwndEdit;
-    static HINSTANCE hInst;
+    static HINSTANCE hInst = NULL;
     
     static int cxChar, cyChar;
     static int cxClient, cyClient;
@@ -84,26 +84,32 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
     static int xCaret, yCaret;
     static int cxIcon, cyIcon;      // 图标的大小
     
-    static TCHAR* pBuffer = NULL;
-    static TCHAR szFileText[MAX_PATH];
+    static TCHAR* pBuffer = NULL;       // 缓冲区指针
+    static TCHAR szFileText[MAX_PATH];  // 
     static TCHAR szFileName[MAX_PATH];
     static TCHAR szBuffer[MAX_PATH];
+
     HDC hdc;
     HMENU hMenu;
     int x, y, i;
     PAINTSTRUCT ps;
     TEXTMETRIC tm;
+    static BOOL isSave = FALSE;
     //HINSTANCE hInstance;    // 实例的句柄。 这是内存中模块的基址。
 
     switch (message)
     {
     case WM_CREATE:
-        hInst = ((LPCREATESTRUCT)lParam) -> hInstance;
+        if (hInst == NULL)
+            hInst = ((LPCREATESTRUCT)lParam) -> hInstance;
         cxIcon = GetSystemMetrics(SM_CXICON);
         cyIcon = GetSystemMetrics(SM_CXICON);
+        FileInit(hwnd);
+        FontInit(hwndEdit);
+        DoCaption(hwnd, szFileName);
         hwndEdit = CreateWindow(
             TEXT("EDIT"),
-            TEXT("///请输入内容///"),
+            TEXT("New File."),
             WS_CHILD | WS_VISIBLE | WS_HSCROLL | WS_VSCROLL | WS_BORDER | ES_LEFT | ES_MULTILINE | ES_NOHIDESEL | ES_AUTOHSCROLL | ES_AUTOVSCROLL,
             0,
             10,
@@ -113,10 +119,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
             (HMENU)EDITID,
             hInst,
             NULL
-        );
-        NotepadFileInitialize(hwnd);
-        NotepadFontInitialize(hwndEdit);
-        DoCaption(hwnd, szFileName);
+        ); 
+        SendMessage(hwndEdit, EM_LIMITTEXT, 32000, 0L);
         //return 0;
 
     case WM_SETFOCUS:
@@ -129,23 +133,51 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 
     case WM_COMMAND:
         hMenu = GetMenu(hwnd);
+        if (lParam && LOWORD(wParam) == EDITID)
+        {
+            switch (HIWORD(wParam))
+            {
+            case EN_UPDATE:
+                isSave = TRUE;
+                return 0;
+            case EN_ERRSPACE:   // 当编辑控件无法分配足够的内存以满足特定请求时，将发送EN_ERRSPACE通知消息
+            case EN_MAXTEXT:    // 当前文本插入超过编辑控件的指定字符数时，将发送EN_MAXTEXT通知消息。文本插入已被截断。
+                MessageBox(hwnd, TEXT("编辑控件内存不足。"),
+                    szAppName, MB_OK | MB_ICONSTOP);
+                return 0;
+            }
+            break;
+        }
+
         switch (LOWORD(wParam))
         {
         case IDM_FILE_NEW:
             DestroyWindow(hwndEdit); // 销毁指定窗口
-            SendMessage(hwnd, WM_CREATE, NULL, 0);
+            hwndEdit = CreateWindow(
+                TEXT("EDIT"),
+                TEXT("New File."),
+                WS_CHILD | WS_VISIBLE | WS_HSCROLL | WS_VSCROLL | WS_BORDER | ES_LEFT | ES_MULTILINE | ES_NOHIDESEL | ES_AUTOHSCROLL | ES_AUTOVSCROLL,
+                0,
+                10,
+                1000,
+                500,
+                hwnd,
+                (HMENU)EDITID,
+                hInst,
+                NULL
+            );
             break;
         case IDM_FILE_OPEN:
         case IDM_FILE_SAVE:
             if (szFileText[0])
             {
-                if (1)
+                if (0)
                 {
                     return 0;
                 }
                 else
                 {
-                    wsprintf(szBuffer, TEXT("Can't Save the File!"), szFileName[0] ? szFileName : UNTITLED);
+                    wsprintf(szBuffer, TEXT("Can't Save the File %s!"), szFileName[0] ? szFileName : UNHEADER);
                     MessageBox(hwnd, szBuffer, szAppName, MB_OK | MB_ICONEXCLAMATION);
                     return 0;
                 }
@@ -157,6 +189,10 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
             break;
         case IDM_EXIT:
             SendMessage(hwnd, WM_CLOSE, NULL, 0);
+        case ID_FORMAT_FONT:
+            if (FontChooseFont(hwnd))
+                FontSetFont(hwndEdit);
+            break;
         default:
             break;
         }
@@ -173,6 +209,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
             return 0;
 
     case WM_DESTROY:
+        FontDeinitialize();
         PostQuitMessage(0);
         return 0;
     }// message END
@@ -180,13 +217,25 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
     return DefWindowProc(hwnd, message, wParam, lParam);
 }
 
-int DoCaption(HWND hwnd, TCHAR* szTitleName)
+int DoCaption(HWND hwnd, TCHAR* szFileName)
 {
     TCHAR szCaption[1 + MAX_PATH];
-    wsprintf(szCaption, TEXT("%s - %s"), szAppName, szTitleName[0] ? szTitleName : UNTITLED);
+    wsprintf(szCaption, TEXT("%s - %s"), szAppName, szFileName[0] ? szFileName : UNHEADER);
     SetWindowText(hwnd, szCaption);
     return 0;
 }
+
+int AskisSave(HWND hwnd, TCHAR* szFileName)
+{
+    TCHAR szBuffer[MAX_PATH + 64];
+    int ret;
+
+    wprintf(szBuffer, TEXT("保存当前文件%s的修改？"), szFileName[0] ? szFileName : UNHEADER);
+
+    return ret;
+}
+
+
 
 /*
 Creating a File View

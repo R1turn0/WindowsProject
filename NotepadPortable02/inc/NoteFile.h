@@ -6,11 +6,16 @@
 #include <string.h>
 #include <stdlib.h>
 
-void NotepadFileInitialize(HWND hwnd);
-BOOL NotepadFileOpenDlg(HWND hwnd, PTSTR pstrFileName, PTSTR pstrTitleName);
-BOOL NotepadFileSaveDlg(HWND hwnd, PTSTR pstrFileName, PTSTR pstrTitleName);
-BOOL NotepadFileRead(HWND hwndEdit, PTSTR pstrFileName);
-BOOL NotepadFileWrite(HWND hwndEdit, PTSTR pstrFileName);
-BOOL NotepadFileOpenDlg(HWND hwnd, PTSTR pstrFileName, PTSTR pstrTitleName);
+void FileInit(HWND);
+
+BOOL FileOpenDlg(HWND, PTSTR, PTSTR);
+
+BOOL FileSaveDlg(HWND, PTSTR, PTSTR);
+
+BOOL FileRead(HWND, PTSTR);
+
+BOOL FileWrite(HWND, PTSTR);
+
+BOOL FileOpenDlg(HWND, PTSTR, PTSTR);
 
 #endif // !NoteFile_H
