@@ -4,12 +4,15 @@
 #include "NoteFile.h"
 #include "NoteFont.h"
 
+#define CXCREAT 0
+#define CYCREAT 0
 #define NUMLINES 100
 #define EDITID   1
 #define BUFFER(x, y) *(pBuffer + y * cxBuffer + x) 
 #define UNHEADER TEXT("New File")
 
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
+int AskAboutSave(HWND, TCHAR*);
 
 static TCHAR szAppName[] = TEXT("Notepad#");
 static TCHAR szMenuName[] = TEXT("NotepadMenu");
@@ -41,7 +44,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
         return 0;
     }
 
-    hMenu = LoadMenu(hInstance, MAKEINTRESOURCE(IDR_MENU1));
+    // 从与应用程序实例关联的可执行 (.exe) 文件中加载指定的菜单资源。
+    hMenu = LoadMenu(hInstance, MAKEINTRESOURCE(IDR_MENU1));    
     hwnd = CreateWindow(
         szAppName,
         TEXT("Windows Test!"),
@@ -59,8 +63,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     ShowWindow(hwnd, iCmdShow);
     UpdateWindow(hwnd);
 
-    hAccel = LoadAccelerators(hInstance, szMenuName);
-
+    // 加载指定的加速器表（即快捷键
+    hAccel = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDR_ACCELERATOR1));   
+    
     while (GetMessage(&msg, NULL, 0, 0))
     {
         if (!TranslateAccelerator(hwnd, hAccel, &msg))
@@ -80,28 +85,33 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
     
     static int cxChar, cyChar;
     static int cxClient, cyClient;
-    static int cxBuffer, cyBuffer;  // 整个窗口作为输入界面，计算出能存放多少个字符
-    static int xCaret, yCaret;
-    static int cxIcon, cyIcon;      // 图标的大小
+    static int cxBuffer, cyBuffer;      // 整个窗口作为输入界面，计算出能存放多少个字符
+    //static int xCaret, yCaret;          // 光标可移动的位置
+    static int cxIcon, cyIcon;          // 图标的大小
     
     static TCHAR* pBuffer = NULL;       // 缓冲区指针
-    static TCHAR szFileText[MAX_PATH];  // 
-    static TCHAR szFileName[MAX_PATH];
-    static TCHAR szBuffer[MAX_PATH];
+    static TCHAR szFileName[MAX_PATH];  // 文件名
+    static TCHAR szFileNew[MAX_PATH];   // 
+    static TCHAR szFileText[MAX_PATH];  // 文件内容
+    static TCHAR szBuffer[MAX_PATH];    // 设置缓冲区
 
     HDC hdc;
     HMENU hMenu;
     int x, y, i;
+    int id;
     PAINTSTRUCT ps;
     TEXTMETRIC tm;
     static BOOL isSave = FALSE;
+    static int szlParam = 0;
     //HINSTANCE hInstance;    // 实例的句柄。 这是内存中模块的基址。
 
     switch (message)
     {
     case WM_CREATE:
         if (hInst == NULL)
+        {
             hInst = ((LPCREATESTRUCT)lParam) -> hInstance;
+        }
         cxIcon = GetSystemMetrics(SM_CXICON);
         cyIcon = GetSystemMetrics(SM_CXICON);
         FileInit(hwnd);
@@ -111,8 +121,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
             TEXT("EDIT"),
             TEXT("New File."),
             WS_CHILD | WS_VISIBLE | WS_HSCROLL | WS_VSCROLL | WS_BORDER | ES_LEFT | ES_MULTILINE | ES_NOHIDESEL | ES_AUTOHSCROLL | ES_AUTOVSCROLL,
-            0,
-            10,
+            CXCREAT,
+            CYCREAT,
             1000,
             500,
             hwnd,
@@ -120,15 +130,20 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
             hInst,
             NULL
         ); 
+        id = GetWindowLong(hwndEdit, GWL_ID);
         SendMessage(hwndEdit, EM_LIMITTEXT, 32000, 0L);
         //return 0;
 
-    case WM_SETFOCUS:
-        SetFocus(hwndEdit);
+    case WM_SIZE:
+        MoveWindow(hwndEdit, 0, 0, LOWORD(lParam), HIWORD(lParam), TRUE);   // 更改指定窗口的位置和尺寸。
+        szlParam = lParam;
+        //UpdateWindow(hwnd);
+        //InvalidateRect(hwnd, NULL, TRUE);
+        //RedrawWindow(hwnd, );
         return 0;
 
-    case WM_SIZE:
-        MoveWindow(hwndEdit, 0, 0, LOWORD(lParam), HIWORD(lParam), TRUE);
+    case WM_SETFOCUS:
+        SetFocus(hwndEdit);
         return 0;
 
     case WM_COMMAND:
@@ -157,10 +172,10 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                 TEXT("EDIT"),
                 TEXT("New File."),
                 WS_CHILD | WS_VISIBLE | WS_HSCROLL | WS_VSCROLL | WS_BORDER | ES_LEFT | ES_MULTILINE | ES_NOHIDESEL | ES_AUTOHSCROLL | ES_AUTOVSCROLL,
-                0,
-                10,
-                1000,
-                500,
+                CXCREAT,
+                CYCREAT,
+                LOWORD(szlParam), // 因为取到lParam为00 00 00 00，在重新发送WM_SIZE后获取到lParam，so进程重新绘制窗口
+                HIWORD(szlParam),
                 hwnd,
                 (HMENU)EDITID,
                 hInst,
@@ -168,6 +183,24 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
             );
             break;
         case IDM_FILE_OPEN:
+            if (isSave && IDCANCEL == AskAboutSave(hwnd, szFileName))
+            {
+                break;
+            }
+
+            if (FileOpenDlg(hwnd, szFileName, szFileNew))
+            {
+                if (!FileRead(hwndEdit, szFileName))
+                {
+                    wsprintf(szBuffer, TEXT("无法读取文件"), szFileNew[0] ? szFileNew : UNHEADER);
+                    MessageBox(hwnd, szBuffer, lpClassName, MB_OK | MB_ICONEXCLAMATION);
+                    szFileName[0] = '\0';
+                    szTitleName[0] = '\0';
+                }
+            }
+            DoCaption(hwnd, szFileNew);
+            isSave = FALSE;
+            break;
         case IDM_FILE_SAVE:
             if (szFileText[0])
             {
@@ -182,6 +215,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                     return 0;
                 }
             }
+            break;
         case IDM_FILE_SAVEAS:
         case IDM_FILE_PRINT:
         case IDM_FILE_CLOSE:
@@ -197,10 +231,6 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
             break;
         }
         return 0;
-
-    case WM_PAINT:
-        return 0;
-        
 
     case WM_CLOSE:      // 发送为窗口或应用程序应终止的信号
         if (MessageBox(hwnd, TEXT("是否退出"), TEXT("退出"), MB_YESNO) == IDYES)
@@ -225,16 +255,22 @@ int DoCaption(HWND hwnd, TCHAR* szFileName)
     return 0;
 }
 
-int AskisSave(HWND hwnd, TCHAR* szFileName)
+int AskAboutSave(HWND hwnd, TCHAR* szFileName)
 {
     TCHAR szBuffer[MAX_PATH + 64];
     int ret;
 
     wprintf(szBuffer, TEXT("保存当前文件%s的修改？"), szFileName[0] ? szFileName : UNHEADER);
-
+    ret = MessageBox(hwnd, szBuffer, szFileName, MB_YESNOCANCEL | MB_ICONQUESTION);
+    if (ret == IDYES)
+    {
+        if (!SendMessage(hwnd, WM_COMMAND, IDM_FILE_SAVE, 0))
+        {
+            ret = IDCANCEL;
+        }
+    }
     return ret;
 }
-
 
 
 /*
