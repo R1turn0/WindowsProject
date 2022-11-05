@@ -49,27 +49,21 @@ BOOL FileRead(HWND hwndEdit, PTSTR pstrFileName)
     PBYTE  pBuffer, pText, pConv;
 
     // Open the file.
-
-    if (INVALID_HANDLE_VALUE ==
-        (hFile = CreateFile(pstrFileName, GENERIC_READ, FILE_SHARE_READ,
-            NULL, OPEN_EXISTING, 0, NULL)))
+    if (INVALID_HANDLE_VALUE == (hFile = CreateFile(pstrFileName, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL)))
         return FALSE;
 
     // Get file size in bytes and allocate memory for read.
     // Add an extra two bytes for zero termination.
-
     iFileLength = GetFileSize(hFile, NULL);
     pBuffer = (PBYTE)malloc(iFileLength + 2);
 
     // Read file and put terminating zeros at end.
-
     ReadFile(hFile, pBuffer, iFileLength, &dwBytesRead, NULL);
     CloseHandle(hFile);
     pBuffer[iFileLength] = '\0';
     pBuffer[iFileLength + 1] = '\0';
 
     // Test to see if the text is unicode
-
     iUniTest = IS_TEXT_UNICODE_SIGNATURE | IS_TEXT_UNICODE_REVERSE_SIGNATURE;
 
     if (IsTextUnicode(pBuffer, iFileLength, &iUniTest))
@@ -88,12 +82,10 @@ BOOL FileRead(HWND hwndEdit, PTSTR pstrFileName)
         }
 
         // Allocate memory for possibly converted string
-
         pConv = (PBYTE)malloc(iFileLength + 2);
 
         // If the edit control is not Unicode, convert Unicode text to 
         // non-Unicode (ie, in general, wide character).
-
 #ifndef UNICODE
         WideCharToMultiByte(CP_ACP, 0, (PWSTR)pText, -1, pConv,
             iFileLength + 2, NULL, NULL);
@@ -102,18 +94,14 @@ BOOL FileRead(HWND hwndEdit, PTSTR pstrFileName)
 #else
         lstrcpy((PTSTR)pConv, (PTSTR)pText);
 #endif
-
     }
     else      // the file is not Unicode
     {
         pText = pBuffer;
 
         // Allocate memory for possibly converted string.
-
         pConv = (PBYTE)malloc(2 * iFileLength + 2);
-
         // If the edit control is Unicode, convert ASCII text.
-
 #ifdef UNICODE
         MultiByteToWideChar(CP_ACP, 0, (LPCSTR)pText, -1, (PTSTR)pConv,
             iFileLength + 1);
@@ -184,8 +172,6 @@ BOOL FileWrite(HWND hwndEdit, PTSTR pstrFileName)
 
     return TRUE;
 }
-
-
 
 //点击Open打开文件
 BOOL FileOpenDlg(HWND hwnd, PTSTR pstrFileName, PTSTR pstrTitleName)

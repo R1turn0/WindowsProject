@@ -123,8 +123,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
             WS_CHILD | WS_VISIBLE | WS_HSCROLL | WS_VSCROLL | WS_BORDER | ES_LEFT | ES_MULTILINE | ES_NOHIDESEL | ES_AUTOHSCROLL | ES_AUTOVSCROLL,
             CXCREAT,
             CYCREAT,
-            1000,
-            500,
+            CXCREAT,
+            CYCREAT,
             hwnd,
             (HMENU)EDITID,
             hInst,
@@ -154,14 +154,15 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
             {
             case EN_UPDATE:
                 isSave = TRUE;
-                return 0;
+                break;
             case EN_ERRSPACE:   // 当编辑控件无法分配足够的内存以满足特定请求时，将发送EN_ERRSPACE通知消息
             case EN_MAXTEXT:    // 当前文本插入超过编辑控件的指定字符数时，将发送EN_MAXTEXT通知消息。文本插入已被截断。
                 MessageBox(hwnd, TEXT("编辑控件内存不足。"),
                     szAppName, MB_OK | MB_ICONSTOP);
-                return 0;
+                break;
             }
             break;
+            return 0;
         }
 
         switch (LOWORD(wParam))
@@ -187,15 +188,14 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
             {
                 break;
             }
-
             if (FileOpenDlg(hwnd, szFileName, szFileNew))
             {
                 if (!FileRead(hwndEdit, szFileName))
                 {
                     wsprintf(szBuffer, TEXT("无法读取文件"), szFileNew[0] ? szFileNew : UNHEADER);
-                    MessageBox(hwnd, szBuffer, lpClassName, MB_OK | MB_ICONEXCLAMATION);
+                    MessageBox(hwnd, szBuffer, szAppName, MB_OK | MB_ICONEXCLAMATION);
                     szFileName[0] = '\0';
-                    szTitleName[0] = '\0';
+                    szFileNew[0] = '\0';
                 }
             }
             DoCaption(hwnd, szFileNew);
