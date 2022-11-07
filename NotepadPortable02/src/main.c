@@ -8,8 +8,8 @@
 #define CYCREAT 0
 #define NUMLINES 100
 #define EDITID   1
-#define BUFFER(x, y) *(pBuffer + y * cxBuffer + x) 
 #define UNHEADER TEXT("New File")
+#define BUFFER(x, y) *(pBuffer + y * cxBuffer + x)
 
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 int AskAboutSave(HWND, TCHAR*);
@@ -91,7 +91,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
     
     static TCHAR* pBuffer = NULL;       // 缓冲区指针
     static TCHAR szFileName[MAX_PATH];  // 文件名
-    static TCHAR szFileNew[MAX_PATH];   // 
+    static TCHAR szTitleName[MAX_PATH];   // 
     static TCHAR szFileText[MAX_PATH];  // 文件内容
     static TCHAR szBuffer[MAX_PATH];    // 设置缓冲区
 
@@ -185,20 +185,18 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
             break;
         case IDM_FILE_OPEN:
             if (isSave && IDCANCEL == AskAboutSave(hwnd, szFileName))
-            {
                 break;
-            }
-            if (FileOpenDlg(hwnd, szFileName, szFileNew))
+            if (FileOpenDlg(hwnd, szFileName, szTitleName))
             {
                 if (!FileRead(hwndEdit, szFileName))
                 {
-                    wsprintf(szBuffer, TEXT("无法读取文件"), szFileNew[0] ? szFileNew : UNHEADER);
+                    wsprintf(szBuffer, TEXT("无法读取文件"), szTitleName[0] ? szTitleName : UNHEADER);
                     MessageBox(hwnd, szBuffer, szAppName, MB_OK | MB_ICONEXCLAMATION);
                     szFileName[0] = '\0';
-                    szFileNew[0] = '\0';
+                    szTitleName[0] = '\0';
                 }
             }
-            DoCaption(hwnd, szFileNew);
+            DoCaption(hwnd, szTitleName);
             isSave = FALSE;
             break;
         case IDM_FILE_SAVE:

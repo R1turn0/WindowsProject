@@ -2,34 +2,49 @@
 
 static OPENFILENAME ofn;
 
-void FileInit(HWND hwnd)
+DWORD FileInit(HWND hwnd)
 {
     static TCHAR szFilter[] = TEXT("Text Files (*.TXT)\0*.txt\0")  \
         TEXT("ASCII Files (*.ASC)\0*.asc\0") \
         TEXT("All Files (*.*)\0*.*\0\0");
 
-    ofn.lStructSize = sizeof(OPENFILENAME);
-    ofn.hwndOwner = hwnd;
-    ofn.hInstance = NULL;
-    ofn.lpstrFilter = szFilter;
-    ofn.lpstrCustomFilter = NULL;
-    ofn.nMaxCustFilter = 0;
-    ofn.nFilterIndex = 0;
-    ofn.lpstrFile = NULL;          // Set in Open and Close functions
-    ofn.nMaxFile = MAX_PATH;
-    ofn.lpstrFileTitle = NULL;          // Set in Open and Close functions
-    ofn.nMaxFileTitle = MAX_PATH;
-    ofn.lpstrInitialDir = NULL;
-    ofn.lpstrTitle = NULL;
-    ofn.Flags = 0;             // Set in Open and Close functions
-    ofn.nFileOffset = 0;
-    ofn.nFileExtension = 0;
-    ofn.lpstrDefExt = TEXT("txt");
-    ofn.lCustData = 0L;
-    ofn.lpfnHook = NULL;
-    ofn.lpTemplateName = NULL;
+    // OPENFILENAME
+    ofn.lStructSize = sizeof(OPENFILENAME); // 结构的长度（以字节为单位）
+    ofn.hwndOwner = hwnd;                   // 拥有对话框的窗口的句柄
+    ofn.hInstance = NULL;                   // 包含对话框模板的内存对象的句柄 、由 lpTemplateName 成员命名的对话框模板的模块的句柄
+    ofn.lpstrFilter = szFilter;             // 包含以 null 结尾的筛选器字符串对的缓冲区
+    ofn.lpstrCustomFilter = NULL;           // 一个静态缓冲区，其中包含一对以 null 结尾的筛选器字符串，用于保留用户选择的筛选器模式
+    ofn.nMaxCustFilter = 0;                 // 由 lpstrCustomFilter 标识的缓冲区的大小（以字符为单位）
+    ofn.nFilterIndex = 0;                   // 文件类型控件中当前所选筛选器的索引
+    ofn.lpstrFile = NULL;                   // 用于初始化文件名编辑控件的 文件名
+    ofn.nMaxFile = MAX_PATH;                // lpstrFile 指向的缓冲区的大小（以字符为单位）
+    ofn.lpstrFileTitle = NULL;              // 文件名和扩展名（没有所选文件的路径信息）
+    ofn.nMaxFileTitle = MAX_PATH;           // lpstrFileTitle 指向的缓冲区的大小（以字符为单位）
+    ofn.lpstrInitialDir = NULL;             // 初始目录
+    ofn.lpstrTitle = NULL;                  // 要放置在对话框标题栏中的字符串
+    ofn.Flags = 0;                          // 一组可用于初始化对话框的位标志
+    ofn.nFileOffset = 0;                    // 从路径的开头到 由 lpstrFile 指向的字符串中文件名的从零开始的偏移量（以字符为单位）
+    ofn.nFileExtension = 0;                 // 从路径的开头到字符串中由 lpstrFile 指向的文件扩展名的从零开始的偏移量（以字符为单位）
+    ofn.lpstrDefExt = TEXT("txt");          // 默认扩展
+    ofn.lCustData = 0L;                     // 系统传递给 lpfnHook 成员标识的挂钩过程的应用程序定义数据
+    ofn.lpfnHook = NULL;                    // 指向挂钩过程的指针
+    ofn.lpTemplateName = NULL;              // hInstance 成员标识的模块中的对话框模板资源的名称
+
+    return 0;
 }
 
+//点击Open打开文件
+BOOL FileOpenDlg(HWND hwnd, PTSTR pstrFileName, PTSTR pstrTitleName)
+{
+    ofn.hwndOwner = hwnd;
+    ofn.lpstrFile = pstrFileName;
+    ofn.lpstrFileTitle = pstrTitleName;
+    ofn.Flags = OFN_HIDEREADONLY | OFN_CREATEPROMPT;
+
+    return GetOpenFileName(&ofn);
+}
+
+// Save File
 BOOL FileSaveDlg(HWND hwnd, PTSTR pstrFileName, PTSTR pstrTitleName)
 {
     ofn.hwndOwner = hwnd;
@@ -57,7 +72,7 @@ BOOL FileRead(HWND hwndEdit, PTSTR pstrFileName)
     iFileLength = GetFileSize(hFile, NULL);
     pBuffer = (PBYTE)malloc(iFileLength + 2);
 
-    // Read file and put terminating zeros at end.
+    // Read file and input terminating zeros at end.
     ReadFile(hFile, pBuffer, iFileLength, &dwBytesRead, NULL);
     CloseHandle(hFile);
     pBuffer[iFileLength] = '\0';
@@ -65,12 +80,10 @@ BOOL FileRead(HWND hwndEdit, PTSTR pstrFileName)
 
     // Test to see if the text is unicode
     iUniTest = IS_TEXT_UNICODE_SIGNATURE | IS_TEXT_UNICODE_REVERSE_SIGNATURE;
-
     if (IsTextUnicode(pBuffer, iFileLength, &iUniTest))
     {
         pText = pBuffer + 2;
         iFileLength -= 2;
-
         if (iUniTest & IS_TEXT_UNICODE_REVERSE_SIGNATURE)
         {
             for (i = 0; i < iFileLength / 2; i++)
@@ -84,14 +97,13 @@ BOOL FileRead(HWND hwndEdit, PTSTR pstrFileName)
         // Allocate memory for possibly converted string
         pConv = (PBYTE)malloc(iFileLength + 2);
 
+#ifndef UNICODE
         // If the edit control is not Unicode, convert Unicode text to 
         // non-Unicode (ie, in general, wide character).
-#ifndef UNICODE
         WideCharToMultiByte(CP_ACP, 0, (PWSTR)pText, -1, pConv,
             iFileLength + 2, NULL, NULL);
-
-        // If the edit control is Unicode, just copy the string
 #else
+        // If the edit control is Unicode, just copy the string
         lstrcpy((PTSTR)pConv, (PTSTR)pText);
 #endif
     }
@@ -103,15 +115,14 @@ BOOL FileRead(HWND hwndEdit, PTSTR pstrFileName)
         pConv = (PBYTE)malloc(2 * iFileLength + 2);
         // If the edit control is Unicode, convert ASCII text.
 #ifdef UNICODE
+        // 将字符串映射到 UTF-16 (宽字符) 字符串。 字符串不一定来自多字节字符集。
         MultiByteToWideChar(CP_ACP, 0, (LPCSTR)pText, -1, (PTSTR)pConv,
             iFileLength + 1);
-
-        // If not, just copy buffer
 #else
+        // If not, just copy buffer
         lstrcpy((PTSTR)pConv, (PTSTR)pText);
 #endif
     }
-
     SetWindowText(hwndEdit, (PTSTR)pConv);
     free(pBuffer);
     free(pConv);
@@ -171,15 +182,4 @@ BOOL FileWrite(HWND hwndEdit, PTSTR pstrFileName)
     free(pstrBuffer);
 
     return TRUE;
-}
-
-//点击Open打开文件
-BOOL FileOpenDlg(HWND hwnd, PTSTR pstrFileName, PTSTR pstrTitleName)
-{
-    ofn.hwndOwner = hwnd;
-    ofn.lpstrFile = pstrFileName;
-    ofn.lpstrFileTitle = pstrTitleName;
-    ofn.Flags = OFN_HIDEREADONLY | OFN_CREATEPROMPT;
-
-    return GetOpenFileName(&ofn);
 }

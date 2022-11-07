@@ -6,7 +6,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-void FileInit(HWND);
+DWORD FileInit(HWND);
 
 BOOL FileOpenDlg(HWND, PTSTR, PTSTR);
 
