@@ -14,6 +14,8 @@ BOOL FileSaveDlg(HWND, PTSTR, PTSTR);
 
 BOOL FileRead(HWND, PTSTR);
 
+BOOL MapFileRead(HWND, PTSTR);
+
 BOOL FileWrite(HWND, PTSTR);
 
 BOOL FileOpenDlg(HWND, PTSTR, PTSTR);

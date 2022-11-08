@@ -64,13 +64,25 @@ BOOL FileRead(HWND hwndEdit, PTSTR pstrFileName)
     PBYTE  pBuffer, pText, pConv;
 
     // Open the file.
-    if (INVALID_HANDLE_VALUE == (hFile = CreateFile(pstrFileName, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL)))
+    hFile = CreateFile(
+        pstrFileName, 
+        GENERIC_READ, 
+        FILE_SHARE_READ, 
+        NULL, 
+        OPEN_EXISTING, 
+        0, 
+        NULL
+    );
+    if (INVALID_HANDLE_VALUE == hFile)
         return FALSE;
 
     // Get file size in bytes and allocate memory for read.
     // Add an extra two bytes for zero termination.
     iFileLength = GetFileSize(hFile, NULL);
     pBuffer = (PBYTE)malloc(iFileLength + 2);
+
+    // 移动指定文件的文件指针
+    //SetFilePointer(hFile, 1, NULL, FILE_BEGIN);  
 
     // Read file and input terminating zeros at end.
     ReadFile(hFile, pBuffer, iFileLength, &dwBytesRead, NULL);
@@ -130,6 +142,72 @@ BOOL FileRead(HWND hwndEdit, PTSTR pstrFileName)
     return TRUE;
 }
 
+BOOL MapFileRead(HWND hwndEdit, PTSTR pstrFileName)
+{
+    BYTE    bySwap;
+    DWORD   dwBytesRead;
+    DWORD   dwFileMapSize;              // 映射文件大小   
+    HANDLE  hFile;                      // 文件句柄
+    HANDLE  hMapFile;                   // 文件映射句柄
+    LPVOID  lpAddr;                     // 文件映射虚拟内存指针
+    DWORD   dwTextHand, dwTextEnd;      // 读文件指针
+    int     i, iFileLength, iUniTest;
+    PBYTE   pBuffer, pText, pConv;
+
+    // 创建文件句柄
+    hFile = CreateFile(
+        pstrFileName,                           // 要创建或打开的文件或设备的名称。
+        GENERIC_READ | GENERIC_WRITE,           // 请求访问文件或设备（可以汇总为读取、写入或 0）以指示两者都没有)
+        FILE_SHARE_READ | FILE_SHARE_WRITE,     // 文件或设备的请求共享模式，可以读取、写入、删除所有这些或无 (引用下表) 。 对属性或扩展属性的访问请求不受此标志的影响。
+        NULL,                                   // 指向一个 SECURITY_ATTRIBUTES 结构的指针，该结构包含两个独立但相关的数据成员：可选的安全描述符，以及一个布尔值，该值确定返回的句柄是否可以由子进程继承。
+        OPEN_EXISTING,                          // 对存在或不存在的文件或设备执行的操作。
+        0,                                      // 文件或设备属性和标志， FILE_ATTRIBUTE_NORMAL 是文件最常见的默认值。
+        NULL                                    // 具有 GENERIC_READ 访问权限的模板文件的有效句柄。 模板文件为正在创建的文件提供文件属性和扩展属性。
+    );
+    if (INVALID_HANDLE_VALUE == hFile)
+        goto CLOSE;
+
+    // 创建文件映射句柄
+    hMapFile = CreateFileMapping(
+        hFile,              // 创建文件映射对象的句柄
+        NULL,               // 指向 SECURITY_ATTRIBUTES 结构的指针，该结构确定返回的句柄是否可以由子进程继承
+        PAGE_READWRITE,     // 允许为只读、写入时复制或读取/写入访问映射视图
+        0,                  // 文件映射对象的最大大小的高阶 DWORD
+        0,                  // 文件映射对象最大大小的低序 DWORD
+        pstrFileName        // 文件映射对象的名称。
+    );
+    if (NULL == hMapFile)
+        goto CLOSE;
+
+    // 将文件映射到虚拟内存中，返回内存指针
+    lpAddr = MapViewOfFile(hMapFile, FILE_MAP_COPY, 0, 0, 0);
+    if (NULL == lpAddr)
+        goto CLOSE;
+
+    // 读文件
+    dwTextHand = *(PDWORD)lpAddr;
+    dwTextEnd = *((PDWORD)lpAddr + 0x20);
+    SetWindowText(hwndEdit, (PTSTR)lpAddr);
+
+    // 写文件
+    //*(PDWORD)lpAddr = 0xFFFFFFFF;
+
+    // 强制更新缓存，应用场景：文件过大时强制写入文件
+    //FlushViewOfFile(((PDWORD)lpAddr), 4);
+
+    // 关闭资源
+    UnmapViewOfFile(lpAddr);
+    CloseHandle(hFile);
+    CloseHandle(hMapFile);
+    return TRUE;
+
+CLOSE:
+    CloseHandle(hFile);
+    CloseHandle(hMapFile);
+    UnmapViewOfFile(lpAddr);
+    return FALSE;
+}
+
 
 BOOL FileWrite(HWND hwndEdit, PTSTR pstrFileName)
 {
@@ -140,15 +218,11 @@ BOOL FileWrite(HWND hwndEdit, PTSTR pstrFileName)
     WORD   wByteOrderMark = 0xFEFF;
 
     // Open the file, creating it if necessary
-
-    if (INVALID_HANDLE_VALUE ==
-        (hFile = CreateFile(pstrFileName, GENERIC_WRITE, 0,
-            NULL, CREATE_ALWAYS, 0, NULL)))
+    if (INVALID_HANDLE_VALUE == (hFile = CreateFile(pstrFileName, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, NULL)))
         return FALSE;
 
     // Get the number of characters in the edit control and allocate
     // memory for them.
-
     iLength = GetWindowTextLength(hwndEdit);
     pstrBuffer = (PTSTR)malloc((iLength + 1) * sizeof(TCHAR));
 
@@ -158,15 +232,13 @@ BOOL FileWrite(HWND hwndEdit, PTSTR pstrFileName)
         return FALSE;
     }
 
+#ifdef UNICODE
     // If the edit control will return Unicode text, write the
     // byte order mark to the file.
-
-#ifdef UNICODE
     WriteFile(hFile, &wByteOrderMark, 2, &dwBytesWritten, NULL);
+
 #endif
-
     // Get the edit buffer and write that out to the file.
-
     GetWindowText(hwndEdit, pstrBuffer, iLength + 1);
     WriteFile(hFile, pstrBuffer, iLength * sizeof(TCHAR),
         &dwBytesWritten, NULL);

@@ -188,7 +188,14 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                 break;
             if (FileOpenDlg(hwnd, szFileName, szTitleName))
             {
-                if (!FileRead(hwndEdit, szFileName))
+                //if (!FileRead(hwndEdit, szFileName))
+                //{
+                //    wsprintf(szBuffer, TEXT("无法读取文件"), szTitleName[0] ? szTitleName : UNHEADER);
+                //    MessageBox(hwnd, szBuffer, szAppName, MB_OK | MB_ICONEXCLAMATION);
+                //    szFileName[0] = '\0';
+                //    szTitleName[0] = '\0';
+                //}
+                if (FALSE == MapFileRead(hwndEdit, szTitleName))
                 {
                     wsprintf(szBuffer, TEXT("无法读取文件"), szTitleName[0] ? szTitleName : UNHEADER);
                     MessageBox(hwnd, szBuffer, szAppName, MB_OK | MB_ICONEXCLAMATION);
@@ -215,6 +222,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
             }
             break;
         case IDM_FILE_SAVEAS:
+            break;
         case IDM_FILE_PRINT:
         case IDM_FILE_CLOSE:
             DestroyWindow(hwndEdit); // 销毁指定窗口
