@@ -128,8 +128,7 @@ BOOL FileRead(HWND hwndEdit, PTSTR pstrFileName)
         // If the edit control is Unicode, convert ASCII text.
 #ifdef UNICODE
         // 将字符串映射到 UTF-16 (宽字符) 字符串。 字符串不一定来自多字节字符集。
-        MultiByteToWideChar(CP_ACP, 0, (LPCSTR)pText, -1, (PTSTR)pConv,
-            iFileLength + 1);
+        MultiByteToWideChar(CP_ACP, 0, (LPCSTR)pText, -1, (PTSTR)pConv, iFileLength + 1);
 #else
         // If not, just copy buffer
         lstrcpy((PTSTR)pConv, (PTSTR)pText);
@@ -150,7 +149,7 @@ BOOL MapFileRead(HWND hwndEdit, PTSTR pstrFileName)
     HANDLE  hFile;                      // 文件句柄
     HANDLE  hMapFile;                   // 文件映射句柄
     LPVOID  lpAddr;                     // 文件映射虚拟内存指针
-    DWORD   dwTextHand, dwTextEnd;      // 读文件指针
+    PDWORD   dwTextHand, dwTextTail;     // 读文件指针
     int     i, iFileLength, iUniTest;
     PBYTE   pBuffer, pText, pConv;
 
@@ -184,11 +183,26 @@ BOOL MapFileRead(HWND hwndEdit, PTSTR pstrFileName)
     if (NULL == lpAddr)
         goto CLOSE;
 
-    // 读文件
-    dwTextHand = *(PDWORD)lpAddr;
-    dwTextEnd = *((PDWORD)lpAddr + 0x20);
-    SetWindowText(hwndEdit, (PTSTR)lpAddr);
+    // 获取文件大小
+    dwFileMapSize = GetFileSize(hFile, NULL);
 
+    // 读文件
+    dwTextHand = (PDWORD)lpAddr;
+    dwTextTail = ((PDWORD)lpAddr + 0x20);
+
+    // Test to see if the text is unicode
+    iUniTest = IS_TEXT_UNICODE_SIGNATURE | IS_TEXT_UNICODE_REVERSE_SIGNATURE;
+    if (IsTextUnicode(lpAddr, dwFileMapSize, &iUniTest))
+    {
+        SetWindowText(hwndEdit, (PTSTR)dwTextHand);
+    }
+    else
+    {
+        pConv = (PBYTE)malloc(2 * dwFileMapSize + 2);
+        // 将字符串映射到 UTF-16 (宽字符) 字符串。 字符串不一定来自多字节字符集。
+        MultiByteToWideChar(CP_ACP, 0, (LPCSTR)dwTextHand, -1, (PTSTR)pConv, dwFileMapSize);
+        SetWindowText(hwndEdit, (PTSTR)pConv);
+    }
     // 写文件
     //*(PDWORD)lpAddr = 0xFFFFFFFF;
 
