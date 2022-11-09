@@ -3,6 +3,7 @@
 #include "resource.h"
 #include "NoteFile.h"
 #include "NoteFont.h"
+//#include "NotePrint.h"
 
 #define CXCREAT 0
 #define CYCREAT 0
@@ -82,13 +83,9 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
     static DWORD dwCharSet = DEFAULT_CHARSET;
     static HWND hwndEdit;
     static HINSTANCE hInst = NULL;
-    
-    static int cxChar, cyChar;
-    static int cxClient, cyClient;
+   
     static int cxBuffer, cyBuffer;      // 整个窗口作为输入界面，计算出能存放多少个字符
-    //static int xCaret, yCaret;          // 光标可移动的位置
     static int cxIcon, cyIcon;          // 图标的大小
-    
     static TCHAR* pBuffer = NULL;       // 缓冲区指针
     static TCHAR szFileName[MAX_PATH];  // 文件名
     static TCHAR szTitleName[MAX_PATH];   // 
@@ -101,7 +98,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
     int id;
     PAINTSTRUCT ps;
     TEXTMETRIC tm;
-    static BOOL isSave = FALSE;
+    static BOOL isSave = TRUE;
     static int szlParam = 0;
     //HINSTANCE hInstance;    // 实例的句柄。 这是内存中模块的基址。
 
@@ -109,9 +106,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
     {
     case WM_CREATE:
         if (hInst == NULL)
-        {
             hInst = ((LPCREATESTRUCT)lParam) -> hInstance;
-        }
         cxIcon = GetSystemMetrics(SM_CXICON);
         cyIcon = GetSystemMetrics(SM_CXICON);
         FileInit(hwnd);
@@ -123,8 +118,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
             WS_CHILD | WS_VISIBLE | WS_HSCROLL | WS_VSCROLL | WS_BORDER | ES_LEFT | ES_MULTILINE | ES_NOHIDESEL | ES_AUTOHSCROLL | ES_AUTOVSCROLL,
             CXCREAT,
             CYCREAT,
-            CXCREAT,
-            CYCREAT,
+            LOWORD(szlParam), // 因为取到lParam为00 00 00 00，在重新发送WM_SIZE后获取到lParam，so进程重新绘制窗口
+            HIWORD(szlParam),
             hwnd,
             (HMENU)EDITID,
             hInst,
@@ -132,11 +127,11 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
         ); 
         id = GetWindowLong(hwndEdit, GWL_ID);
         SendMessage(hwndEdit, EM_LIMITTEXT, 32000, 0L);
-        //return 0;
+        return 0;
 
     case WM_SIZE:
-        MoveWindow(hwndEdit, 0, 0, LOWORD(lParam), HIWORD(lParam), TRUE);   // 更改指定窗口的位置和尺寸。
         szlParam = lParam;
+        MoveWindow(hwndEdit, 0, 0, LOWORD(szlParam), HIWORD(szlParam), TRUE);   // 更改指定窗口的位置和尺寸。
         //UpdateWindow(hwnd);
         //InvalidateRect(hwnd, NULL, TRUE);
         //RedrawWindow(hwnd, );
@@ -169,32 +164,16 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
         {
         case IDM_FILE_NEW:
             DestroyWindow(hwndEdit); // 销毁指定窗口
-            hwndEdit = CreateWindow(
-                TEXT("EDIT"),
-                TEXT("New File."),
-                WS_CHILD | WS_VISIBLE | WS_HSCROLL | WS_VSCROLL | WS_BORDER | ES_LEFT | ES_MULTILINE | ES_NOHIDESEL | ES_AUTOHSCROLL | ES_AUTOVSCROLL,
-                CXCREAT,
-                CYCREAT,
-                LOWORD(szlParam), // 因为取到lParam为00 00 00 00，在重新发送WM_SIZE后获取到lParam，so进程重新绘制窗口
-                HIWORD(szlParam),
-                hwnd,
-                (HMENU)EDITID,
-                hInst,
-                NULL
-            );
+            SendMessage(hwnd, WM_CREATE, 0, NULL);
+            SendMessage(hwnd, WM_SETFOCUS, 0, NULL);
             break;
         case IDM_FILE_OPEN:
             if (isSave && IDCANCEL == AskAboutSave(hwnd, szFileName))
                 break;
+            DestroyWindow(hwndEdit); // 销毁指定窗口
+            SendMessage(hwnd, WM_CREATE, 0, NULL);
             if (FileOpenDlg(hwnd, szFileName, szTitleName))
             {
-                //if (!FileRead(hwndEdit, szFileName))
-                //{
-                //    wsprintf(szBuffer, TEXT("无法读取文件"), szTitleName[0] ? szTitleName : UNHEADER);
-                //    MessageBox(hwnd, szBuffer, szAppName, MB_OK | MB_ICONEXCLAMATION);
-                //    szFileName[0] = '\0';
-                //    szTitleName[0] = '\0';
-                //}
                 if (FALSE == MapFileRead(hwndEdit, szTitleName))
                 {
                     wsprintf(szBuffer, TEXT("无法读取文件"), szTitleName[0] ? szTitleName : UNHEADER);
@@ -204,41 +183,62 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                 }
             }
             DoCaption(hwnd, szTitleName);
-            isSave = FALSE;
+            isSave = TRUE;
             break;
         case IDM_FILE_SAVE:
-            if (szFileText[0])
+            FileWrite(hwndEdit, szFileName);
+            
+        case IDM_FILE_SAVEAS:
+            if (FileSaveDlg(hwnd, szFileName, szTitleName))
             {
-                if (0)
+                DoCaption(hwnd, szTitleName);
+                if (FileWrite(hwndEdit, szFileName))
                 {
-                    return 0;
+                    isSave = TRUE;
+                    break;
                 }
                 else
                 {
-                    wsprintf(szBuffer, TEXT("Can't Save the File %s!"), szFileName[0] ? szFileName : UNHEADER);
+                    wsprintf(szBuffer, TEXT("无法另存为..."), szTitleName[0] ? szTitleName : UNHEADER);
                     MessageBox(hwnd, szBuffer, szAppName, MB_OK | MB_ICONEXCLAMATION);
-                    return 0;
+                    break;
                 }
             }
             break;
-        case IDM_FILE_SAVEAS:
-            break;
         case IDM_FILE_PRINT:
+            //if (!PrintFile(hInst, hwnd, hwndEdit, szTitleName))
+            //{
+            //    wsprintf(szBuffer, TEXT("打印失败"), szTitleName[0] ? szTitleName : UNHEADER);
+            //    MessageBox(hwnd, szBuffer, szAppName, MB_OK | MB_ICONEXCLAMATION);
+            //}
+            break;
+
         case IDM_FILE_CLOSE:
+            if (!isSave && MessageBox(hwnd, TEXT("是否保存？"), TEXT("退出"), MB_YESNO) == IDYES)
+            {
+                SendMessage(hwndEdit, WM_COMMAND, IDM_FILE_SAVE, 0);
+            }
             DestroyWindow(hwndEdit); // 销毁指定窗口
             break;
+
         case IDM_EXIT:
             SendMessage(hwnd, WM_CLOSE, NULL, 0);
+
         case ID_FORMAT_FONT:
             if (FontChooseFont(hwnd))
                 FontSetFont(hwndEdit);
             break;
+
         default:
             break;
         }
         return 0;
 
     case WM_CLOSE:      // 发送为窗口或应用程序应终止的信号
+        if (!isSave && MessageBox(hwnd, TEXT("是否保存？"), TEXT("退出"), MB_YESNO) == IDYES)
+        {
+            SendMessage(hwndEdit, WM_COMMAND, IDM_FILE_SAVE, 0);
+        }
         if (MessageBox(hwnd, TEXT("是否退出"), TEXT("退出"), MB_YESNO) == IDYES)
             DestroyWindow(hwnd);
         else

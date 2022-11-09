@@ -2,6 +2,8 @@
 
 static OPENFILENAME ofn;
 
+static LPVOID  lpAddr;                     // 文件映射虚拟内存指针
+
 DWORD FileInit(HWND hwnd)
 {
     static TCHAR szFilter[] = TEXT("Text Files (*.TXT)\0*.txt\0")  \
@@ -55,92 +57,6 @@ BOOL FileSaveDlg(HWND hwnd, PTSTR pstrFileName, PTSTR pstrTitleName)
     return GetSaveFileName(&ofn);
 }
 
-BOOL FileRead(HWND hwndEdit, PTSTR pstrFileName)
-{
-    BYTE   bySwap;
-    DWORD  dwBytesRead;
-    HANDLE hFile;
-    int    i, iFileLength, iUniTest;
-    PBYTE  pBuffer, pText, pConv;
-
-    // Open the file.
-    hFile = CreateFile(
-        pstrFileName, 
-        GENERIC_READ, 
-        FILE_SHARE_READ, 
-        NULL, 
-        OPEN_EXISTING, 
-        0, 
-        NULL
-    );
-    if (INVALID_HANDLE_VALUE == hFile)
-        return FALSE;
-
-    // Get file size in bytes and allocate memory for read.
-    // Add an extra two bytes for zero termination.
-    iFileLength = GetFileSize(hFile, NULL);
-    pBuffer = (PBYTE)malloc(iFileLength + 2);
-
-    // 移动指定文件的文件指针
-    //SetFilePointer(hFile, 1, NULL, FILE_BEGIN);  
-
-    // Read file and input terminating zeros at end.
-    ReadFile(hFile, pBuffer, iFileLength, &dwBytesRead, NULL);
-    CloseHandle(hFile);
-    pBuffer[iFileLength] = '\0';
-    pBuffer[iFileLength + 1] = '\0';
-
-    // Test to see if the text is unicode
-    iUniTest = IS_TEXT_UNICODE_SIGNATURE | IS_TEXT_UNICODE_REVERSE_SIGNATURE;
-    if (IsTextUnicode(pBuffer, iFileLength, &iUniTest))
-    {
-        pText = pBuffer + 2;
-        iFileLength -= 2;
-        if (iUniTest & IS_TEXT_UNICODE_REVERSE_SIGNATURE)
-        {
-            for (i = 0; i < iFileLength / 2; i++)
-            {
-                bySwap = ((BYTE*)pText)[2 * i];
-                ((BYTE*)pText)[2 * i] = ((BYTE*)pText)[2 * i + 1];
-                ((BYTE*)pText)[2 * i + 1] = bySwap;
-            }
-        }
-
-        // Allocate memory for possibly converted string
-        pConv = (PBYTE)malloc(iFileLength + 2);
-
-#ifndef UNICODE
-        // If the edit control is not Unicode, convert Unicode text to 
-        // non-Unicode (ie, in general, wide character).
-        WideCharToMultiByte(CP_ACP, 0, (PWSTR)pText, -1, pConv,
-            iFileLength + 2, NULL, NULL);
-#else
-        // If the edit control is Unicode, just copy the string
-        lstrcpy((PTSTR)pConv, (PTSTR)pText);
-#endif
-    }
-    else      // the file is not Unicode
-    {
-        pText = pBuffer;
-
-        // Allocate memory for possibly converted string.
-        pConv = (PBYTE)malloc(2 * iFileLength + 2);
-        // If the edit control is Unicode, convert ASCII text.
-#ifdef UNICODE
-        // 将字符串映射到 UTF-16 (宽字符) 字符串。 字符串不一定来自多字节字符集。
-        MultiByteToWideChar(CP_ACP, 0, (LPCSTR)pText, -1, (PTSTR)pConv, iFileLength + 1);
-#else
-        // If not, just copy buffer
-        lstrcpy((PTSTR)pConv, (PTSTR)pText);
-#endif
-    }
-    SetWindowText(hwndEdit, (PTSTR)pConv);
-    free(pBuffer);
-    free(pConv);
-
-    return TRUE;
-}
-
 BOOL MapFileRead(HWND hwndEdit, PTSTR pstrFileName)
 {
     BYTE    bySwap;
@@ -148,7 +64,7 @@ BOOL MapFileRead(HWND hwndEdit, PTSTR pstrFileName)
     DWORD   dwFileMapSize;              // 映射文件大小   
     HANDLE  hFile;                      // 文件句柄
     HANDLE  hMapFile;                   // 文件映射句柄
-    LPVOID  lpAddr;                     // 文件映射虚拟内存指针
+    //LPVOID  lpAddr;                     // 文件映射虚拟内存指针
     PDWORD   dwTextHand, dwTextTail;     // 读文件指针
     int     i, iFileLength, iUniTest;
     PBYTE   pBuffer, pText, pConv;
@@ -179,40 +95,52 @@ BOOL MapFileRead(HWND hwndEdit, PTSTR pstrFileName)
         goto CLOSE;
 
     // 将文件映射到虚拟内存中，返回内存指针
-    lpAddr = MapViewOfFile(hMapFile, FILE_MAP_COPY, 0, 0, 0);
+    // FILE_MAP_COPY
+    // FILE_MAP_ALL_ACCESS
+    lpAddr = MapViewOfFile(hMapFile, FILE_MAP_ALL_ACCESS, 0, 0, 0);
     if (NULL == lpAddr)
         goto CLOSE;
 
     // 获取文件大小
     dwFileMapSize = GetFileSize(hFile, NULL);
-
     // 读文件
     dwTextHand = (PDWORD)lpAddr;
     dwTextTail = ((PDWORD)lpAddr + 0x20);
 
     // Test to see if the text is unicode
+    // UTF - 8编码的文本文档，有的带有BOM(Byte Order Mark, 字节序标志)，即0xEF, 0xBB, 0xBF
     iUniTest = IS_TEXT_UNICODE_SIGNATURE | IS_TEXT_UNICODE_REVERSE_SIGNATURE;
     if (IsTextUnicode(lpAddr, dwFileMapSize, &iUniTest))
     {
         SetWindowText(hwndEdit, (PTSTR)dwTextHand);
     }
-    else
+    else if (0)
     {
-        pConv = (PBYTE)malloc(2 * dwFileMapSize + 2);
+        pConv = (PBYTE)malloc(dwFileMapSize + 1);
         // 将字符串映射到 UTF-16 (宽字符) 字符串。 字符串不一定来自多字节字符集。
         MultiByteToWideChar(CP_ACP, 0, (LPCSTR)dwTextHand, -1, (PTSTR)pConv, dwFileMapSize);
         SetWindowText(hwndEdit, (PTSTR)pConv);
+        free(pConv);
     }
+    else
+    {
+        pConv = (PBYTE)malloc(dwFileMapSize * 2 + 2);
+        // 将字符串映射到 UTF-16 (宽字符) 字符串。 字符串不一定来自多字节字符集。
+        MultiByteToWideChar(CP_UTF8, 0, (LPCSTR)dwTextHand, -1, (PTSTR)pConv, dwFileMapSize);
+        SetWindowText(hwndEdit, (PTSTR)pConv);
+        free(pConv);
+    }
+
     // 写文件
-    //*(PDWORD)lpAddr = 0xFFFFFFFF;
+    //*dwTextHand = 0x41414141;
 
     // 强制更新缓存，应用场景：文件过大时强制写入文件
-    //FlushViewOfFile(((PDWORD)lpAddr), 4);
+    //FlushViewOfFile(dwTextHand, 0);
 
     // 关闭资源
-    UnmapViewOfFile(lpAddr);
     CloseHandle(hFile);
     CloseHandle(hMapFile);
+    UnmapViewOfFile(lpAddr);
     return TRUE;
 
 CLOSE:
@@ -222,6 +150,17 @@ CLOSE:
     return FALSE;
 }
 
+BOOL MapFileWrite(HWND hwndEdit, PTSTR pstrFileName)
+{
+    PDWORD   dwTextHand, dwTextTail;     // 读文件指针
+
+    dwTextHand = (PDWORD)lpAddr;
+
+    // 将文件映射视图内的字节范围写入磁盘
+    FlushViewOfFile(dwTextHand, 0);
+
+    return TRUE;
+}
 
 BOOL FileWrite(HWND hwndEdit, PTSTR pstrFileName)
 {
@@ -232,7 +171,9 @@ BOOL FileWrite(HWND hwndEdit, PTSTR pstrFileName)
     WORD   wByteOrderMark = 0xFEFF;
 
     // Open the file, creating it if necessary
-    if (INVALID_HANDLE_VALUE == (hFile = CreateFile(pstrFileName, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, NULL)))
+    if (INVALID_HANDLE_VALUE ==
+        (hFile = CreateFile(pstrFileName, GENERIC_WRITE, 0,
+            NULL, CREATE_ALWAYS, 0, NULL)))
         return FALSE;
 
     // Get the number of characters in the edit control and allocate
@@ -246,12 +187,12 @@ BOOL FileWrite(HWND hwndEdit, PTSTR pstrFileName)
         return FALSE;
     }
 
-#ifdef UNICODE
     // If the edit control will return Unicode text, write the
     // byte order mark to the file.
+#ifdef UNICODE
     WriteFile(hFile, &wByteOrderMark, 2, &dwBytesWritten, NULL);
-
 #endif
+
     // Get the edit buffer and write that out to the file.
     GetWindowText(hwndEdit, pstrBuffer, iLength + 1);
     WriteFile(hFile, pstrBuffer, iLength * sizeof(TCHAR),

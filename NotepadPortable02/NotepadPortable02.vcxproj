@@ -192,11 +192,13 @@
     <ClCompile Include="src\main.c" />
     <ClCompile Include="src\NoteFile.c" />
     <ClCompile Include="src\NoteFont.c" />
+    <ClCompile Include="src\NotePrint.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="cdr\resource.h" />
     <ClInclude Include="inc\NoteFile.h" />
     <ClInclude Include="inc\NoteFont.h" />
+    <ClInclude Include="inc\NotePrint.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="cdr\NotepadPortable02.rc" />
