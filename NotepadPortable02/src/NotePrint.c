@@ -103,7 +103,7 @@ BOOL PrintFile(HINSTANCE hInst, HWND hwnd, HWND hwndEdit, PTSTR szTitleName)
 
     hDlgPrint = CreateDialog(hInst, TEXT("PrintDlgBox"), hwnd, PrintDlgProc);
 
-    SetDlgItemText(hDlgPrint, IDC_FILENAME, szTitleName);
+    SetDlgItemText(hDlgPrint, 1000, szTitleName);
     SetAbortProc(pd.hDC, AbortProc);
 
     // Start the document

@@ -88,7 +88,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
     static int cxIcon, cyIcon;          // 图标的大小
     static TCHAR* pBuffer = NULL;       // 缓冲区指针
     static TCHAR szFileName[MAX_PATH];  // 文件名
-    static TCHAR szTitleName[MAX_PATH];   // 
+    static TCHAR szTitleName[MAX_PATH]; // 
     static TCHAR szFileText[MAX_PATH];  // 文件内容
     static TCHAR szBuffer[MAX_PATH];    // 设置缓冲区
 
@@ -167,8 +167,9 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
             SendMessage(hwnd, WM_CREATE, 0, NULL);
             SendMessage(hwnd, WM_SETFOCUS, 0, NULL);
             break;
+
         case IDM_FILE_OPEN:
-            if (isSave && IDCANCEL == AskAboutSave(hwnd, szFileName))
+            if (!isSave && IDCANCEL == AskAboutSave(hwnd, szFileName))
                 break;
             DestroyWindow(hwndEdit); // 销毁指定窗口
             SendMessage(hwnd, WM_CREATE, 0, NULL);
@@ -185,8 +186,12 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
             DoCaption(hwnd, szTitleName);
             isSave = TRUE;
             break;
+
         case IDM_FILE_SAVE:
-            FileWrite(hwndEdit, szFileName);
+            if (FileWrite(hwndEdit, szFileName))
+            {
+                break;
+            }
             
         case IDM_FILE_SAVEAS:
             if (FileSaveDlg(hwnd, szFileName, szTitleName))
@@ -223,6 +228,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 
         case IDM_EXIT:
             SendMessage(hwnd, WM_CLOSE, NULL, 0);
+            break;
 
         case ID_FORMAT_FONT:
             if (FontChooseFont(hwnd))
@@ -266,7 +272,7 @@ int AskAboutSave(HWND hwnd, TCHAR* szFileName)
     TCHAR szBuffer[MAX_PATH + 64];
     int ret;
 
-    wprintf(szBuffer, TEXT("保存当前文件%s的修改？"), szFileName[0] ? szFileName : UNHEADER);
+    wsprintf(szBuffer, TEXT("是否保存当前文件%s?"), szFileName[0] ? szFileName : UNHEADER);
     ret = MessageBox(hwnd, szBuffer, szFileName, MB_YESNOCANCEL | MB_ICONQUESTION);
     if (ret == IDYES)
     {
