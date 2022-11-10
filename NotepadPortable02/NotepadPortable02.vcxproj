@@ -103,7 +103,7 @@
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <GenerateDebugInformation>false</GenerateDebugInformation>
     </Link>
     <ResourceCompile>
       <AdditionalIncludeDirectories>$(SolutionDir)cdr\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -130,7 +130,7 @@
       <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <GenerateDebugInformation>false</GenerateDebugInformation>
     </Link>
     <ResourceCompile>
       <AdditionalIncludeDirectories>$(SolutionDir)cdr\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -154,7 +154,7 @@
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <GenerateDebugInformation>false</GenerateDebugInformation>
     </Link>
     <ResourceCompile>
       <AdditionalIncludeDirectories>$(SolutionDir)cdr\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -182,7 +182,7 @@
       <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <GenerateDebugInformation>false</GenerateDebugInformation>
     </Link>
     <ResourceCompile>
       <AdditionalIncludeDirectories>$(SolutionDir)cdr\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>

@@ -59,8 +59,7 @@ BOOL PrintFile(HINSTANCE hInst, HWND hwnd, HWND hwndEdit, PTSTR szTitleName)
     pd.hDevMode = NULL;
     pd.hDevNames = NULL;
     pd.hDC = NULL;
-    pd.Flags = PD_ALLPAGES | PD_COLLATE |
-        PD_RETURNDC | PD_NOSELECTION;
+    pd.Flags = PD_ALLPAGES | PD_COLLATE | PD_RETURNDC | PD_NOSELECTION;
     pd.nFromPage = 0;
     pd.nToPage = 0;
     pd.nMinPage = 0;
@@ -182,5 +181,5 @@ BOOL PrintFile(HINSTANCE hInst, HWND hwnd, HWND hwndEdit, PTSTR szTitleName)
     free(pstrBuffer);
     DeleteDC(pd.hDC);
 
-    return bSuccess && !bUserAbort;
+    return bSuccess & ~bUserAbort;
 }

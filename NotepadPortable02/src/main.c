@@ -1,9 +1,10 @@
 #include <windows.h>
 #include <strsafe.h>
+#include <string.h>
 #include "resource.h"
 #include "NoteFile.h"
 #include "NoteFont.h"
-//#include "NotePrint.h"
+#include "NotePrint.h"
 
 #define CXCREAT 0
 #define CYCREAT 0
@@ -14,6 +15,7 @@
 
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 int AskAboutSave(HWND, TCHAR*);
+BOOL DestroyOpen(HWND, TCHAR*, TCHAR*);
 
 static TCHAR szAppName[] = TEXT("Notepad#");
 static TCHAR szMenuName[] = TEXT("NotepadMenu");
@@ -87,10 +89,9 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
     static int cxBuffer, cyBuffer;      // 整个窗口作为输入界面，计算出能存放多少个字符
     static int cxIcon, cyIcon;          // 图标的大小
     static TCHAR* pBuffer = NULL;       // 缓冲区指针
-    static TCHAR szFileName[MAX_PATH];  // 文件名
-    static TCHAR szTitleName[MAX_PATH]; // 
-    static TCHAR szFileText[MAX_PATH];  // 文件内容
-    static TCHAR szBuffer[MAX_PATH];    // 设置缓冲区
+    static TCHAR szFileName[MAX_PATH];  // 带路径信息的文件名
+    static TCHAR szTitleName[MAX_PATH]; // 仅为文件名
+    static TCHAR szBuffer[MAX_PATH];    // 设置文本缓冲区
 
     HDC hdc;
     HMENU hMenu;
@@ -148,7 +149,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
             switch (HIWORD(wParam))
             {
             case EN_UPDATE:
-                isSave = TRUE;
+                isSave = FALSE;
                 break;
             case EN_ERRSPACE:   // 当编辑控件无法分配足够的内存以满足特定请求时，将发送EN_ERRSPACE通知消息
             case EN_MAXTEXT:    // 当前文本插入超过编辑控件的指定字符数时，将发送EN_MAXTEXT通知消息。文本插入已被截断。
@@ -163,7 +164,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
         switch (LOWORD(wParam))
         {
         case IDM_FILE_NEW:
-            DestroyWindow(hwndEdit); // 销毁指定窗口
+            DestroyOpen(hwndEdit, szFileName, szTitleName);
             SendMessage(hwnd, WM_CREATE, 0, NULL);
             SendMessage(hwnd, WM_SETFOCUS, 0, NULL);
             break;
@@ -171,13 +172,13 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
         case IDM_FILE_OPEN:
             if (!isSave && IDCANCEL == AskAboutSave(hwnd, szFileName))
                 break;
-            DestroyWindow(hwndEdit); // 销毁指定窗口
+            DestroyOpen(hwndEdit, szFileName, szTitleName);
             SendMessage(hwnd, WM_CREATE, 0, NULL);
             if (FileOpenDlg(hwnd, szFileName, szTitleName))
             {
                 if (FALSE == MapFileRead(hwndEdit, szTitleName))
                 {
-                    wsprintf(szBuffer, TEXT("无法读取文件"), szTitleName[0] ? szTitleName : UNHEADER);
+                    StringCchPrintf(szBuffer, MAX_PATH, TEXT("无法读取文件"), szTitleName[0] ? szTitleName : UNHEADER);
                     MessageBox(hwnd, szBuffer, szAppName, MB_OK | MB_ICONEXCLAMATION);
                     szFileName[0] = '\0';
                     szTitleName[0] = '\0';
@@ -190,8 +191,10 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
         case IDM_FILE_SAVE:
             if (FileWrite(hwndEdit, szFileName))
             {
+                isSave = TRUE;
                 break;
             }
+            // 此处不需要break;
             
         case IDM_FILE_SAVEAS:
             if (FileSaveDlg(hwnd, szFileName, szTitleName))
@@ -204,26 +207,25 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                 }
                 else
                 {
-                    wsprintf(szBuffer, TEXT("无法另存为..."), szTitleName[0] ? szTitleName : UNHEADER);
+                    StringCchPrintf(szBuffer, MAX_PATH, TEXT("无法另存为..."), szTitleName[0] ? szTitleName : UNHEADER);
                     MessageBox(hwnd, szBuffer, szAppName, MB_OK | MB_ICONEXCLAMATION);
                     break;
                 }
             }
             break;
         case IDM_FILE_PRINT:
-            //if (!PrintFile(hInst, hwnd, hwndEdit, szTitleName))
-            //{
-            //    wsprintf(szBuffer, TEXT("打印失败"), szTitleName[0] ? szTitleName : UNHEADER);
-            //    MessageBox(hwnd, szBuffer, szAppName, MB_OK | MB_ICONEXCLAMATION);
-            //}
+            if (!PrintFile(hInst, hwnd, hwndEdit, szTitleName))
+            {
+                StringCchPrintf(szBuffer, MAX_PATH, TEXT("打印失败"), szTitleName[0] ? szTitleName : UNHEADER);
+                MessageBox(hwnd, szBuffer, szAppName, MB_OK | MB_ICONEXCLAMATION);
+            }
             break;
 
         case IDM_FILE_CLOSE:
-            if (!isSave && MessageBox(hwnd, TEXT("是否保存？"), TEXT("退出"), MB_YESNO) == IDYES)
-            {
-                SendMessage(hwndEdit, WM_COMMAND, IDM_FILE_SAVE, 0);
-            }
-            DestroyWindow(hwndEdit); // 销毁指定窗口
+            if (isSave)
+                DestroyOpen(hwndEdit, szFileName, szTitleName);
+            else if (AskAboutSave(hwndEdit, szFileName))
+                DestroyOpen(hwndEdit, szFileName, szTitleName);
             break;
 
         case IDM_EXIT:
@@ -241,12 +243,12 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
         return 0;
 
     case WM_CLOSE:      // 发送为窗口或应用程序应终止的信号
-        if (!isSave && MessageBox(hwnd, TEXT("是否保存？"), TEXT("退出"), MB_YESNO) == IDYES)
-        {
-            SendMessage(hwndEdit, WM_COMMAND, IDM_FILE_SAVE, 0);
-        }
+        if (isSave)
+            DestroyOpen(hwndEdit, szFileName, szTitleName);
+        else if (AskAboutSave(hwndEdit, szFileName))
+            DestroyOpen(hwndEdit, szFileName, szTitleName);
         if (MessageBox(hwnd, TEXT("是否退出"), TEXT("退出"), MB_YESNO) == IDYES)
-            DestroyWindow(hwnd);
+            DestroyOpen(hwndEdit, szFileName, szTitleName);
         else
             return 0;
 
@@ -267,21 +269,32 @@ int DoCaption(HWND hwnd, TCHAR* szFileName)
     return 0;
 }
 
-int AskAboutSave(HWND hwnd, TCHAR* szFileName)
+BOOL AskAboutSave(HWND hwnd, TCHAR* szFileName)
 {
     TCHAR szBuffer[MAX_PATH + 64];
     int ret;
 
-    wsprintf(szBuffer, TEXT("是否保存当前文件%s?"), szFileName[0] ? szFileName : UNHEADER);
+    StringCchPrintf(szBuffer, MAX_PATH, TEXT("是否保存当前文件%s?"), szFileName[0] ? szFileName : UNHEADER);
     ret = MessageBox(hwnd, szBuffer, szFileName, MB_YESNOCANCEL | MB_ICONQUESTION);
-    if (ret == IDYES)
+    if (ret == IDCANCEL)
     {
-        if (!SendMessage(hwnd, WM_COMMAND, IDM_FILE_SAVE, 0))
-        {
-            ret = IDCANCEL;
-        }
+        ret = FALSE;
+    }
+    else
+    {
+        if(IDYES == ret)
+            SendMessage(hwnd, WM_COMMAND, IDM_FILE_SAVE, 0);
+        ret = TRUE;
     }
     return ret;
+}
+
+BOOL DestroyOpen(HWND hwnd, TCHAR *szFileName, TCHAR *szTitleName)
+{
+    DestroyWindow(hwnd);
+    memset(szFileName, 0, sizeof(*szFileName));
+    memset(szTitleName, 0, sizeof(*szTitleName));
+    return TRUE;
 }
 
 
