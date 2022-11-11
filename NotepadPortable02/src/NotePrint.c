@@ -37,7 +37,7 @@ BOOL CALLBACK AbortProc(HDC hPrinterDC, int iCode)
             DispatchMessage(&msg);
         }
     }
-    return !bUserAbort;
+    return ~bUserAbort;
 }
 
 BOOL PrintFile(HINSTANCE hInst, HWND hwnd, HWND hwndEdit, PTSTR szTitleName)
@@ -53,7 +53,6 @@ BOOL PrintFile(HINSTANCE hInst, HWND hwnd, HWND hwndEdit, PTSTR szTitleName)
     WORD            iColCopy, iNoiColCopy;
 
     // Invoke Print common dialog box
-
     pd.lStructSize = sizeof(PRINTDLG);
     pd.hwndOwner = hwnd;
     pd.hDevMode = NULL;
@@ -81,7 +80,6 @@ BOOL PrintFile(HINSTANCE hInst, HWND hwnd, HWND hwndEdit, PTSTR szTitleName)
         return TRUE;
 
     // Calculate necessary metrics for file 
-
     GetTextMetrics(pd.hDC, &tm);
     yChar = tm.tmHeight + tm.tmExternalLeading;
 
@@ -90,11 +88,9 @@ BOOL PrintFile(HINSTANCE hInst, HWND hwnd, HWND hwndEdit, PTSTR szTitleName)
     iTotalPages = (iTotalLines + iLinesPerPage - 1) / iLinesPerPage;
 
     // Allocate a buffer for each line of text
-
     pstrBuffer = (PTSTR)malloc(sizeof(TCHAR) * (iCharsPerLine + 1));
 
     // Display the printing dialog box
-
     EnableWindow(hwnd, FALSE);
 
     bSuccess = TRUE;
@@ -102,7 +98,7 @@ BOOL PrintFile(HINSTANCE hInst, HWND hwnd, HWND hwndEdit, PTSTR szTitleName)
 
     hDlgPrint = CreateDialog(hInst, TEXT("PrintDlgBox"), hwnd, PrintDlgProc);
 
-    SetDlgItemText(hDlgPrint, 1000, szTitleName);
+    SetDlgItemText(hDlgPrint, 0, szTitleName);
     SetAbortProc(pd.hDC, AbortProc);
 
     // Start the document
@@ -113,7 +109,6 @@ BOOL PrintFile(HINSTANCE hInst, HWND hwnd, HWND hwndEdit, PTSTR szTitleName)
     if (StartDoc(pd.hDC, &di) > 0)
     {
         // Collation requires this loop and iNoiColCopy
-
         for (iColCopy = 0;
             iColCopy < ((WORD)pd.Flags & PD_COLLATE ? pd.nCopies : 1);
             iColCopy++)
@@ -125,7 +120,6 @@ BOOL PrintFile(HINSTANCE hInst, HWND hwnd, HWND hwndEdit, PTSTR szTitleName)
                     iNoiColCopy++)
                 {
                     // Start the page
-
                     if (StartPage(pd.hDC) < 0)
                     {
                         bSuccess = FALSE;
@@ -133,7 +127,6 @@ BOOL PrintFile(HINSTANCE hInst, HWND hwnd, HWND hwndEdit, PTSTR szTitleName)
                     }
 
                     // For each page, print the lines
-
                     for (iLine = 0; iLine < iLinesPerPage; iLine++)
                     {
                         iLineNum = iLinesPerPage * iPage + iLine;
@@ -147,21 +140,17 @@ BOOL PrintFile(HINSTANCE hInst, HWND hwnd, HWND hwndEdit, PTSTR szTitleName)
                             (int)SendMessage(hwndEdit, EM_GETLINE,
                                 (WPARAM)iLineNum, (LPARAM)pstrBuffer));
                     }
-
                     if (EndPage(pd.hDC) < 0)
                     {
                         bSuccess = FALSE;
                         break;
                     }
-
                     if (bUserAbort)
                         break;
                 }
-
                 if (!bSuccess || bUserAbort)
                     break;
             }
-
             if (!bSuccess || bUserAbort)
                 break;
         }
