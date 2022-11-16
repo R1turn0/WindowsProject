@@ -247,8 +247,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
             DestroyOpen(hwndEdit, szFileName, szTitleName);
         else if (AskAboutSave(hwndEdit, szFileName))
             DestroyOpen(hwndEdit, szFileName, szTitleName);
-        if (MessageBox(hwnd, TEXT("是否退出"), TEXT("退出"), MB_YESNO) == IDYES)
-            DestroyOpen(hwndEdit, szFileName, szTitleName);
+        //if (MessageBox(hwnd, TEXT("是否退出"), TEXT("退出"), MB_YESNO) == IDYES)
+        //    DestroyOpen(hwndEdit, szFileName, szTitleName);
         else
             return 0;
 

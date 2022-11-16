@@ -65,7 +65,7 @@ BOOL MapFileRead(HWND hwndEdit, PTSTR pstrFileName)
     HANDLE  hFile;                      // 文件句柄
     HANDLE  hMapFile;                   // 文件映射句柄
     //LPVOID  lpAddr;                     // 文件映射虚拟内存指针
-    PDWORD   dwTextHand, dwTextTail;     // 读文件指针
+    PBYTE   dwTextHand, dwTextTail;     // 读文件指针
     int     i, iFileLength, iUniTest;
     PBYTE   pBuffer, pText, pConv;
 
@@ -104,8 +104,8 @@ BOOL MapFileRead(HWND hwndEdit, PTSTR pstrFileName)
     // 获取文件大小
     dwFileMapSize = GetFileSize(hFile, NULL);
     // 读文件
-    dwTextHand = (PDWORD)lpAddr;
-    dwTextTail = ((PDWORD)lpAddr + 0x20);
+    dwTextHand = (PBYTE)lpAddr;
+    dwTextTail = ((PBYTE)lpAddr + 0x20);
 
     // Test to see if the text is unicode
     // UTF - 8编码的文本文档，有的带有BOM(Byte Order Mark, 字节序标志)，即0xEF, 0xBB, 0xBF
@@ -114,10 +114,11 @@ BOOL MapFileRead(HWND hwndEdit, PTSTR pstrFileName)
     {
         SetWindowText(hwndEdit, (PTSTR)dwTextHand);
     }
-    else if (0)
+    //else if (IsDBCSLeadByte(*dwTextHand))
+    //else if (ANSI_CHARSET == GetTextCharset(lpAddr))
+    else if (is_str_gbk(dwTextHand))
     {
-        pConv = (PBYTE)malloc(dwFileMapSize + 1);
-        // 将字符串映射到 UTF-16 (宽字符) 字符串。 字符串不一定来自多字节字符集。
+        pConv = (PBYTE)malloc(dwFileMapSize * 2 + 2);
         MultiByteToWideChar(CP_ACP, 0, (LPCSTR)dwTextHand, -1, (PTSTR)pConv, dwFileMapSize);
         SetWindowText(hwndEdit, (PTSTR)pConv);
         free(pConv);
@@ -210,3 +211,66 @@ BOOL FileWrite(HWND hwndEdit, PTSTR pstrFileName)
 
     return TRUE;
 }
+
+BOOL is_str_gbk(char* str)
+{
+    unsigned int nBytes = 0;    // GBK用1-2个字节编码,中文两个 ,英文一个
+    unsigned char chr = *str;
+    unsigned int i = 0;
+    BOOL bAllAscii = TRUE; //如果全部都是ASCII,
+
+    // GBK使用双字节编码，第一字节0xA1-0xF7, 第二字节0xA1-0xFE
+    for (i = 0; str[i] != '\0'; ++i) {
+        chr = str[i];
+        if ((chr & 0x80) != 0 && nBytes == 0) { // 判断是否ASCII编码,如果不是,说明有可能是GBK
+            bAllAscii = FALSE;
+        }
+        if (nBytes == 0) {
+            if (chr >= 0x80) {
+                if (chr >= 0xA1 && chr <= 0xF7) {
+                    nBytes = 2;
+                }
+                else {
+                    return FALSE;
+                }
+                nBytes--;
+            }
+        }
+        else {
+            if (chr < 0xA1 || chr > 0xFE) {
+                return FALSE;
+            }
+            nBytes--;
+        }//else end
+    }
+    if (nBytes != 0) {   //违返规则
+        return FALSE;
+    }
+    if (bAllAscii) { //如果全部都是ASCII, 也是GBK
+        return TRUE;
+    }
+    return TRUE;
+}
+
+
+////gb2312 to unicode
+//int wLen = MultiByteToWideChar(CP_ACP, 0, lpszText, -1, NULL, 0);
+//LPWSTR wStr = new WCHAR[wLen];
+//MultiByteToWideChar(CP_ACP, 0, lpszText, -1, wStr, wLen);
+
+////unicode to utf8
+//int aLen = WideCharToMultiByte(CP_UTF8, 0, wStr, -1, NULL, 0, NULL, NULL);
+//char* converted = new char[aLen];
+//WideCharToMultiByte(CP_UTF8, 0, wStr, -1, converted, aLen, NULL, NULL);
+
+
+////utf8 to unicode
+//int wLen2 = MultiByteToWideChar(CP_UTF8, 0, converted, -1, NULL, 0);
+//LPWSTR wStr2 = new WCHAR[wLen2];
+//MultiByteToWideChar(CP_UTF8, 0, converted, -1, wStr2, wLen2);
+
+
+////unicode to gb2312
+//int aLen2 = WideCharToMultiByte(CP_ACP, 0, wStr2, -1, NULL, 0, NULL, NULL);
+//char* converted2 = new char[aLen2];
+//WideCharToMultiByte(CP_ACP, 0, wStr, -1, converted2, aLen2, NULL, NULL);

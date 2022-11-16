@@ -18,4 +18,6 @@ BOOL FileWrite(HWND, PTSTR);
 
 BOOL MapFileWrite(HWND, PTSTR);
 
+BOOL is_str_gbk(PBYTE);
+
 #endif // !NoteFile_H
